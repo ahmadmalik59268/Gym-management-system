@@ -1,0 +1,70 @@
+@import "tailwindcss";
+
+@layer base {
+  /* Print Optimization Styles */
+  @media print {
+    @page {
+      size: A4 portrait;
+      margin: 10mm;
+    }
+
+    /* Hide UI navigation, sidebar, headers, and action buttons during print */
+    aside,
+    header,
+    nav,
+    .no-print,
+    button:not(.print-include),
+    .print\\:hidden,
+    .dialog-backdrop,
+    [role="dialog"] > div:first-child:not([role="document"]) {
+      display: none !important;
+    }
+
+    /* Reset backgrounds and enforce clean contrast */
+    body,
+    #root,
+    main {
+      background: #ffffff !important;
+      color: #0f172a !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      width: 100% !important;
+      max-width: 100% !important;
+      box-shadow: none !important;
+      font-size: 11pt !important;
+    }
+
+    /* Make printable containers expand cleanly */
+    .printable-sheet,
+    #printable-receipt,
+    #printable-payslip,
+    #printable-member-profile,
+    #printable-membership-invoice,
+    #printable-attendance-report {
+      width: 100% !important;
+      max-width: 100% !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      border: none !important;
+      box-shadow: none !important;
+      background: #ffffff !important;
+      color: #0f172a !important;
+      display: block !important;
+    }
+
+    /* Avoid page-breaks inside crucial blocks */
+    .printable-sheet tr,
+    .printable-sheet .avoid-break,
+    table,
+    figure {
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
+    }
+
+    /* Ensure text colors are sharp */
+    * {
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+  }
+}

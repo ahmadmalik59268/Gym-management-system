@@ -1,0 +1,6 @@
+{
+  "name": "Gym Management System",
+  "description": "A comprehensive, modern, and fully responsive Gym Management System frontend featuring dashboard analytics, member management, attendance tracking, payments, trainer assignments, workout & diet plans, expenses, equipment maintenance, reports, and settings.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
