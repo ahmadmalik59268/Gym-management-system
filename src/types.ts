@@ -483,3 +483,21 @@ export interface GymSettings {
   taxRate: number;
   receiptFooter: string;
 }
+
+// Landing Page Form Submissions / Leads
+export type FormSubmissionType = 'Contact Us' | 'Demo Request' | 'Membership Inquiry' | 'Free Trial' | 'Free Trial Request' | 'Custom Quote' | 'General';
+export type FormSubmissionStatus = 'New' | 'Contacted' | 'Converted' | 'Closed';
+
+export interface FormSubmission {
+  id: string;
+  createdAt: string;
+  name: string;
+  email: string;
+  phone: string;
+  formType: FormSubmissionType;
+  subject: string;
+  message: string;
+  status: FormSubmissionStatus;
+  notes?: string;
+}
+

@@ -22,6 +22,8 @@ import {
   Layers,
   UserCheck,
   Banknote,
+  Globe,
+  FileText,
 } from 'lucide-react';
 import { useGym } from '../../context/GymContext';
 import { useAuth } from '../../context/AuthContext';
@@ -39,7 +41,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isDesktopCollapsed,
 }) => {
   const location = useLocation();
-  const { notifications, members, payments } = useGym();
+  const { notifications, members, payments, formSubmissions } = useGym();
   const { role, isConfigured, hasAccess } = useAuth();
 
   // Submenu toggle states
@@ -58,6 +60,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const unreadNotifsCount = (notifications || []).filter((n) => !n.isRead).length;
   const expiringMembersCount = (members || []).filter((m) => m.status === 'Expiring Soon').length;
+  const newInquiriesCount = (formSubmissions || []).filter((s) => s.status === 'New').length;
 
   const closeMobile = () => setIsMobileOpen(false);
 
@@ -132,6 +135,33 @@ export const Sidebar: React.FC<SidebarProps> = ({
             >
               <LayoutDashboard className="w-5 h-5 shrink-0" />
               {!isDesktopCollapsed && <span>Dashboard</span>}
+            </NavLink>
+          )}
+
+          {/* Forms & Leads (Landing Page Data) */}
+          {hasAccess('forms') && (
+            <NavLink
+              to="/forms"
+              onClick={closeMobile}
+              className={({ isActive }) => navItemClass(isActive)}
+              title="Forms & Website Leads"
+            >
+              <div className="relative shrink-0 flex items-center justify-center">
+                <FileText className="w-5 h-5 shrink-0" />
+                {newInquiriesCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-indigo-500 animate-ping" />
+                )}
+              </div>
+              {!isDesktopCollapsed && (
+                <div className="flex items-center justify-between flex-1">
+                  <span>Forms & Leads</span>
+                  {newInquiriesCount > 0 && (
+                    <span className="bg-indigo-600 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">
+                      {newInquiriesCount}
+                    </span>
+                  )}
+                </div>
+              )}
             </NavLink>
           )}
 
@@ -496,6 +526,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {!isDesktopCollapsed && <span>Settings</span>}
             </NavLink>
           )}
+
+          {/* Public Landing Page Link */}
+          <NavLink
+            to="/landing"
+            onClick={closeMobile}
+            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-emerald-400 hover:text-emerald-300 hover:bg-emerald-950/40 border border-emerald-500/20 transition-all duration-150 mt-2"
+            title="Public Landing Website"
+          >
+            <Globe className="w-5 h-5 shrink-0 text-emerald-400" />
+            {!isDesktopCollapsed && (
+              <div className="flex items-center justify-between w-full">
+                <span>Public Website</span>
+                <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-bold px-1.5 py-0.5 rounded">
+                  Live
+                </span>
+              </div>
+            )}
+          </NavLink>
         </div>
 
         {/* Footer info in sidebar */}

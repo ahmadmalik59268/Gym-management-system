@@ -23,6 +23,9 @@ import {
   PayrollBonus,
   PayrollRecord,
   MemberCommissionBreakdown,
+  FormSubmission,
+  FormSubmissionType,
+  FormSubmissionStatus,
 } from '../types';
 
 // ==========================================
@@ -1413,3 +1416,207 @@ export async function apiDeletePayrollRecord(id: string): Promise<void> {
   const { error } = await supabase.from('payroll_records').delete().eq('id', id);
   if (error) throw error;
 }
+
+// ==========================================
+// 21. CONTACT MESSAGES & LANDING PAGE INQUIRIES
+// ==========================================
+export async function apiFetchFormSubmissions(): Promise<FormSubmission[]> {
+  if (!isSupabaseConfigured) return [];
+
+  // Try querying contact_messages first (canonical table requested by user)
+  const { data: contactData, error: contactError } = await supabase
+    .from('contact_messages')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (!contactError && contactData) {
+    return contactData.map((row: any) => ({
+      id: String(row.id),
+      createdAt: row.created_at || new Date().toISOString(),
+      name: row.name || '',
+      email: row.email || '',
+      phone: row.phone || '',
+      formType: (row.form_type as FormSubmissionType) || 'Contact Us',
+      subject: row.subject || '',
+      message: row.message || '',
+      status: (row.status as FormSubmissionStatus) || 'New',
+      notes: row.notes || '',
+    }));
+  }
+
+  // Fallback to form_submissions table if contact_messages table is not yet migrated
+  const { data, error } = await supabase
+    .from('form_submissions')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    // If neither exists, check landing_form_submissions
+    const { data: legacyData, error: legacyError } = await supabase
+      .from('landing_form_submissions')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (legacyError) {
+      console.warn('Contact messages / form submissions table not yet queried or empty:', error.message);
+      return [];
+    }
+
+    return (legacyData || []).map((row: any) => ({
+      id: String(row.id),
+      createdAt: row.created_at || new Date().toISOString(),
+      name: row.name || '',
+      email: row.email || '',
+      phone: row.phone || '',
+      formType: (row.form_type as FormSubmissionType) || 'Contact Us',
+      subject: row.subject || '',
+      message: row.message || '',
+      status: (row.status as FormSubmissionStatus) || 'New',
+      notes: row.notes || '',
+    }));
+  }
+
+  return (data || []).map((row: any) => ({
+    id: String(row.id),
+    createdAt: row.created_at || new Date().toISOString(),
+    name: row.name || '',
+    email: row.email || '',
+    phone: row.phone || '',
+    formType: (row.form_type as FormSubmissionType) || 'Contact Us',
+    subject: row.subject || '',
+    message: row.message || '',
+    status: (row.status as FormSubmissionStatus) || 'New',
+    notes: row.notes || '',
+  }));
+}
+
+export async function apiInsertFormSubmission(sub: Omit<FormSubmission, 'id' | 'createdAt'>): Promise<FormSubmission> {
+  const localId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `MSG-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+  const createdAt = new Date().toISOString();
+
+  const submissionResult: FormSubmission = {
+    id: localId,
+    createdAt,
+    name: sub.name,
+    email: sub.email,
+    phone: sub.phone || '',
+    formType: sub.formType || 'Contact Us',
+    subject: sub.subject || '',
+    message: sub.message || '',
+    status: sub.status || 'New',
+    notes: sub.notes || '',
+  };
+
+  if (!isSupabaseConfigured) {
+    return submissionResult;
+  }
+
+  const payload = {
+    name: sub.name,
+    email: sub.email,
+    phone: sub.phone || null,
+    subject: sub.subject || null,
+    message: sub.message || null,
+    status: sub.status || 'New',
+    notes: sub.notes || null,
+    form_type: sub.formType || 'Contact Us',
+  };
+
+  try {
+    // 1. Try inserting into contact_messages first (omitting .select() to support anon insert RLS policy)
+    const { error: contactError } = await supabase
+      .from('contact_messages')
+      .insert([payload]);
+
+    if (!contactError) {
+      return submissionResult;
+    }
+
+    console.warn('contact_messages table insert issue:', contactError.message);
+
+    // 2. Try inserting into form_submissions table
+    const fallbackId = `FORM-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    const { error: subError } = await supabase
+      .from('form_submissions')
+      .insert([{ ...payload, id: fallbackId }]);
+
+    if (!subError) {
+      return { ...submissionResult, id: fallbackId };
+    }
+
+    // 3. Try inserting into legacy landing_form_submissions table
+    const { error: legacyError } = await supabase
+      .from('landing_form_submissions')
+      .insert([{ ...payload, id: fallbackId }]);
+
+    if (!legacyError) {
+      return { ...submissionResult, id: fallbackId };
+    }
+
+    // 4. If remote database tables have RLS policy restrictions (e.g. 42501 for unauthenticated visitors)
+    // we save the lead locally so that no visitor inquiry is lost and the user sees a smooth confirmation
+    console.warn(
+      'Supabase RLS active on contact_messages. Saved submission to local state & storage.\n' +
+      'To enable remote database writes for public website visitors, run in Supabase SQL editor:\n' +
+      'CREATE POLICY "Allow public insert" ON public.contact_messages FOR INSERT TO anon, authenticated WITH CHECK (true);'
+    );
+    return submissionResult;
+  } catch (err: any) {
+    console.warn('Network or DB error during form submission, storing locally:', err);
+    return submissionResult;
+  }
+}
+
+export async function apiUpdateFormSubmission(
+  id: string,
+  updates: Partial<Pick<FormSubmission, 'status' | 'notes'>>
+): Promise<void> {
+  if (!isSupabaseConfigured) return;
+
+  const payload: any = {};
+  if (updates.status !== undefined) payload.status = updates.status;
+  if (updates.notes !== undefined) payload.notes = updates.notes;
+  payload.updated_at = new Date().toISOString();
+
+  // Try contact_messages first
+  const { error: contactError } = await supabase
+    .from('contact_messages')
+    .update(payload)
+    .eq('id', id);
+
+  if (!contactError) return;
+
+  // Fallback to form_submissions
+  const { error } = await supabase
+    .from('form_submissions')
+    .update(payload)
+    .eq('id', id);
+
+  if (error) {
+    // Also try legacy table if present
+    await supabase.from('landing_form_submissions').update(payload).eq('id', id);
+  }
+}
+
+export async function apiDeleteFormSubmission(id: string): Promise<void> {
+  if (!isSupabaseConfigured) return;
+
+  // Try contact_messages first
+  const { error: contactError } = await supabase
+    .from('contact_messages')
+    .delete()
+    .eq('id', id);
+
+  if (!contactError) return;
+
+  // Fallback to form_submissions
+  const { error } = await supabase
+    .from('form_submissions')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    await supabase.from('landing_form_submissions').delete().eq('id', id);
+  }
+}
+

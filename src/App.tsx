@@ -27,6 +27,8 @@ import { StaffPage } from './pages/Staff';
 import { Settings } from './pages/Settings';
 import { NotificationsPage } from './pages/Notifications';
 import { PayrollLayout } from './pages/payroll/PayrollLayout';
+import { LandingPage } from './pages/LandingPage';
+import { FormsPage } from './pages/Forms';
 
 export default function App() {
   return (
@@ -35,6 +37,9 @@ export default function App() {
         <GymProvider>
           <PayrollProvider>
             <Routes>
+              {/* Public Landing route explicitly accessible in all configurations */}
+              <Route path="/landing" element={<LandingPage />} />
+
               {/* Authentication route */}
               <Route path="/login" element={<LoginPage />} />
 
@@ -42,6 +47,11 @@ export default function App() {
               <Route path="/" element={<AppLayout />}>
                 {/* Dashboard */}
                 <Route index element={<Dashboard />} />
+
+                {/* Forms & Inquiries (Landing Page data) */}
+                <Route path="forms" element={<FormsPage />} />
+                <Route path="inquiries" element={<FormsPage />} />
+                <Route path="leads" element={<FormsPage />} />
 
                 {/* Members Section */}
                 <Route path="members" element={<Members />} />

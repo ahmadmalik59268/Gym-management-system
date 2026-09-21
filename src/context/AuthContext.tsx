@@ -32,6 +32,27 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+export const getRoleDefaultPath = (role: AppRole): string => {
+  switch (role) {
+    case 'Admin':
+      return '/';
+    case 'Manager':
+      return '/';
+    case 'Receptionist':
+      return '/members';
+    case 'Trainer':
+      return '/workout-plans';
+    case 'Member':
+      return '/workout-plans';
+    case 'Maintenance':
+      return '/equipment';
+    case 'Cleaner':
+      return '/attendance';
+    default:
+      return '/';
+  }
+};
+
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -40,7 +61,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   // Helper to load profile from public.user_profiles
-  const fetchUserProfile = async (currentUser: User) => {
+  const fetchUserProfile = async (currentUser: User): Promise<UserProfile | null> => {
     try {
       // 1. Try fetching by auth_user_id
       const { data, error } = await supabase
@@ -50,9 +71,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         .maybeSingle();
 
       if (data && !error) {
-        setProfile(data as UserProfile);
-        setRole((data.role as AppRole) || 'Member');
-        return;
+        const loadedProfile = data as UserProfile;
+        setProfile(loadedProfile);
+        setRole((loadedProfile.role as AppRole) || 'Member');
+        return loadedProfile;
       }
 
       // 2. Fallback: try fetching by email if auth_user_id not yet linked
@@ -60,7 +82,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const { data: emailData, error: emailErr } = await supabase
           .from('user_profiles')
           .select('*')
-          .eq('email', currentUser.email)
+          .ilike('email', currentUser.email)
           .maybeSingle();
 
         if (emailData && !emailErr) {
@@ -71,9 +93,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               .update({ auth_user_id: currentUser.id })
               .eq('id', emailData.id);
           }
-          setProfile(emailData as UserProfile);
-          setRole((emailData.role as AppRole) || 'Member');
-          return;
+          const loadedProfile = emailData as UserProfile;
+          setProfile(loadedProfile);
+          setRole((loadedProfile.role as AppRole) || 'Member');
+          return loadedProfile;
         }
       }
 
@@ -86,9 +109,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         .maybeSingle();
 
       if (retryData) {
-        setProfile(retryData as UserProfile);
-        setRole((retryData.role as AppRole) || 'Member');
-        return;
+        const loadedProfile = retryData as UserProfile;
+        setProfile(loadedProfile);
+        setRole((loadedProfile.role as AppRole) || 'Member');
+        return loadedProfile;
       }
 
       // 4. Self-healing fallback: insert member profile directly if trigger failed or didn't run
@@ -114,9 +138,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           .maybeSingle();
 
         if (insertedData && !insErr) {
-          setProfile(insertedData as UserProfile);
+          const loadedProfile = insertedData as UserProfile;
+          setProfile(loadedProfile);
           setRole('Member');
-          return;
+          return loadedProfile;
         }
       } catch (selfHealErr) {
         console.warn('Self-healing profile creation note:', selfHealErr);
@@ -124,59 +149,131 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       // Safe default role assignment in frontend state
       setRole('Member');
+      return null;
     } catch (err) {
       console.error('Error fetching user profile from public.user_profiles:', err);
       setRole('Member');
+      return null;
     }
   };
 
   useEffect(() => {
+    let isMounted = true;
+
     if (!isSupabaseConfigured) {
-      setRole('Admin'); // Full access for local standalone demo/preview
+      setUser(null);
+      setSession(null);
+      setProfile(null);
+      setRole('Member');
       setIsLoading(false);
       return;
     }
 
-    // Initialize session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchUserProfile(session.user).finally(() => setIsLoading(false));
-      } else {
-        setIsLoading(false);
-      }
-    });
+    let authSubscription: { unsubscribe: () => void } | null = null;
 
-    // Listen for auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, newSession) => {
-        setSession(newSession);
-        setUser(newSession?.user ?? null);
-        if (newSession?.user) {
-          await fetchUserProfile(newSession.user);
+    const initializeAuth = async () => {
+      try {
+        // 1. Get initial session
+        const { data: { session: initialSession }, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError) {
+          console.error('Error retrieving Supabase session:', sessionError);
+        }
+
+        if (!isMounted) return;
+
+        if (initialSession?.user) {
+          setSession(initialSession);
+          setUser(initialSession.user);
+          await fetchUserProfile(initialSession.user);
         } else {
+          setSession(null);
+          setUser(null);
           setProfile(null);
           setRole('Member');
         }
-        setIsLoading(false);
+      } catch (err) {
+        console.error('App Startup Auth Initialization Error:', err);
+        if (isMounted) {
+          setUser(null);
+          setSession(null);
+          setProfile(null);
+          setRole('Member');
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
-    );
+
+      // 2. Attach single onAuthStateChange listener for future events
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(
+        async (event, currentSession) => {
+          if (!isMounted) return;
+
+          // Skip INITIAL_SESSION event since initializeAuth already resolved initial state
+          if (event === 'INITIAL_SESSION') return;
+
+          if (event === 'SIGNED_OUT' || !currentSession?.user) {
+            setSession(null);
+            setUser(null);
+            setProfile(null);
+            setRole('Member');
+            setIsLoading(false);
+            return;
+          }
+
+          setSession(currentSession);
+          setUser(currentSession.user);
+          await fetchUserProfile(currentSession.user);
+          setIsLoading(false);
+        }
+      );
+
+      authSubscription = subscription;
+    };
+
+    initializeAuth();
 
     return () => {
-      subscription.unsubscribe();
+      isMounted = false;
+      if (authSubscription) {
+        authSubscription.unsubscribe();
+      }
     };
   }, []);
 
   const signIn = async (email: string, password: string) => {
+    if (!isSupabaseConfigured) {
+      return {
+        error: new Error(
+          'Supabase backend is not configured. Please configure your VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY or enter your keys using Configure Keys.'
+        ),
+      };
+    }
+
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
-        email,
+        email: email.trim(),
         password,
       });
       if (error) return { error };
+
       if (data.user) {
-        await fetchUserProfile(data.user);
+        setSession(data.session);
+        setUser(data.user);
+        const userProfile = await fetchUserProfile(data.user);
+
+        // Account status check
+        if (userProfile && userProfile.status === 'Inactive') {
+          await supabase.auth.signOut();
+          setUser(null);
+          setSession(null);
+          setProfile(null);
+          setRole('Member');
+          return {
+            error: new Error('Your account is marked inactive. Please contact the gym administrator.'),
+          };
+        }
       }
       return { error: null };
     } catch (err: any) {
@@ -185,25 +282,31 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const signUp = async (email: string, password: string, fullName: string, phone?: string) => {
+    if (!isSupabaseConfigured) {
+      return {
+        error: new Error(
+          'Supabase backend is not configured. Please configure your VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY or enter your keys using Configure Keys.'
+        ),
+      };
+    }
+
     try {
       const { data, error } = await supabase.auth.signUp({
-        email,
+        email: email.trim(),
         password,
         options: {
           data: {
-            full_name: fullName,
-            phone: phone || '',
+            full_name: fullName.trim(),
+            phone: phone?.trim() || '',
           },
         },
       });
       if (error) return { error };
 
-      if (data.user) {
-        // Profile is securely created by Supabase database trigger handle_new_user()
-        // If session was granted immediately (auto-confirm enabled), load profile
-        if (data.session) {
-          await fetchUserProfile(data.user);
-        }
+      if (data.user && data.session) {
+        setSession(data.session);
+        setUser(data.user);
+        await fetchUserProfile(data.user);
       }
 
       return { error: null };
@@ -213,8 +316,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const resetPassword = async (email: string) => {
+    if (!isSupabaseConfigured) {
+      return {
+        error: new Error('Supabase backend is not configured. Please enter your Supabase keys first.'),
+      };
+    }
+
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
         redirectTo: window.location.origin + '/login',
       });
       if (error) return { error };
@@ -225,11 +334,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      if (isSupabaseConfigured) {
+        await supabase.auth.signOut();
+      }
+    } catch (err) {
+      console.error('Sign out error:', err);
+    }
     setUser(null);
     setSession(null);
     setProfile(null);
-    setRole('Member'); // Reset role strictly on logout
+    setRole('Member');
+    setIsLoading(false);
   };
 
   const refreshProfile = async () => {
@@ -260,7 +376,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         'diet-plans',
         'equipment',
         'reports',
-        'notifications'
+        'notifications',
+        'forms',
+        'leads'
       ];
       // Explicitly reject forbidden modules
       const forbidden = ['staff', 'payroll', 'expenses', 'settings', 'users-and-roles', 'user-management'];
@@ -276,7 +394,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         'members',
         'memberships',
         'payments',
-        'attendance'
+        'attendance',
+        'forms',
+        'leads'
       ];
       if (normalizedModule === 'dashboard' || normalizedModule === '' || normalizedModule === '/') {
         return false;

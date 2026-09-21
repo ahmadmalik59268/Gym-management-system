@@ -12,6 +12,7 @@ import {
   Settings as SettingsIcon,
   Shield,
   HelpCircle,
+  Globe,
 } from 'lucide-react';
 import { useGym, SUPPORTED_CURRENCIES } from '../../context/GymContext';
 import { useAuth } from '../../context/AuthContext';
@@ -117,6 +118,16 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Right Side: Search, Currency, Notifications, Profile */}
         <div className="flex items-center gap-2 sm:gap-3">
+          {/* Public Landing Page Link */}
+          <Link
+            to="/landing"
+            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold border border-indigo-200 transition-colors shadow-2xs"
+            title="Go to Public Website Landing Page"
+          >
+            <Globe className="w-3.5 h-3.5 text-indigo-600" />
+            <span className="hidden sm:inline">Landing Page</span>
+          </Link>
+
           {/* Quick Currency Switcher */}
           <div className="relative">
             <button
@@ -303,6 +314,16 @@ export const Header: React.FC<HeaderProps> = ({
                   </div>
 
                   <div className="py-1">
+                    <button
+                      onClick={() => {
+                        navigate('/landing');
+                        setIsProfileOpen(false);
+                      }}
+                      className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-indigo-600 hover:bg-indigo-50 font-semibold text-left"
+                    >
+                      <Globe className="w-4 h-4 text-indigo-600" />
+                      <span>View Public Website</span>
+                    </button>
                     <button
                       onClick={() => {
                         navigate('/settings');

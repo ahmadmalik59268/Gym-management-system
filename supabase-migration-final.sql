@@ -1851,4 +1851,112 @@ BEGIN
     );
 END $$;
 
+-- ----------------------------------------------------------------------------
+-- 18. CONTACT MESSAGES & LANDING PAGE INQUIRIES
+-- ----------------------------------------------------------------------------
+-- Primary table: contact_messages (UUID primary key, canonical contact log)
+CREATE TABLE IF NOT EXISTS public.contact_messages (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  email text NOT NULL,
+  phone text,
+  subject text NOT NULL DEFAULT 'Website Inquiry',
+  message text NOT NULL DEFAULT '',
+  status text NOT NULL DEFAULT 'New',
+  notes text,
+  form_type text NOT NULL DEFAULT 'Contact Us',
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- Backward compatibility table: form_submissions
+CREATE TABLE IF NOT EXISTS public.form_submissions (
+  id text PRIMARY KEY,
+  name text NOT NULL,
+  email text NOT NULL,
+  phone text,
+  form_type text NOT NULL DEFAULT 'Contact Us',
+  subject text NOT NULL DEFAULT 'Website Inquiry',
+  message text NOT NULL DEFAULT '',
+  status text NOT NULL DEFAULT 'New',
+  notes text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- Enable RLS on both tables
+ALTER TABLE public.contact_messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.form_submissions ENABLE ROW LEVEL SECURITY;
+
+-- ============================================================================
+-- RLS POLICIES FOR contact_messages
+-- Strict Principle: Public visitors can ONLY INSERT.
+-- Public visitors CANNOT SELECT, UPDATE, or DELETE messages.
+-- ============================================================================
+
+-- 1. Anyone (public anon & authenticated) can submit an inquiry
+DROP POLICY IF EXISTS "Public can submit contact form" ON public.contact_messages;
+CREATE POLICY "Public can submit contact form"
+  ON public.contact_messages
+  FOR INSERT
+  TO anon, authenticated
+  WITH CHECK (true);
+
+-- 2. Staff only can read contact messages (Visitors are blocked from reading)
+DROP POLICY IF EXISTS "Staff can read contact messages" ON public.contact_messages;
+CREATE POLICY "Staff can read contact messages"
+  ON public.contact_messages
+  FOR SELECT
+  TO authenticated
+  USING (public.is_staff());
+
+-- 3. Staff only can update contact message status/notes
+DROP POLICY IF EXISTS "Staff can update contact messages" ON public.contact_messages;
+CREATE POLICY "Staff can update contact messages"
+  ON public.contact_messages
+  FOR UPDATE
+  TO authenticated
+  USING (public.is_staff())
+  WITH CHECK (public.is_staff());
+
+-- 4. Managers/Admins only can delete contact messages
+DROP POLICY IF EXISTS "Staff can delete contact messages" ON public.contact_messages;
+CREATE POLICY "Staff can delete contact messages"
+  ON public.contact_messages
+  FOR DELETE
+  TO authenticated
+  USING (public.is_manager());
+
+-- ============================================================================
+-- RLS POLICIES FOR form_submissions (Fallback Compatibility)
+-- ============================================================================
+DROP POLICY IF EXISTS "Public can submit form_submissions" ON public.form_submissions;
+CREATE POLICY "Public can submit form_submissions"
+  ON public.form_submissions
+  FOR INSERT
+  TO anon, authenticated
+  WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Staff can read form_submissions" ON public.form_submissions;
+CREATE POLICY "Staff can read form_submissions"
+  ON public.form_submissions
+  FOR SELECT
+  TO authenticated
+  USING (public.is_staff());
+
+DROP POLICY IF EXISTS "Staff can update form_submissions" ON public.form_submissions;
+CREATE POLICY "Staff can update form_submissions"
+  ON public.form_submissions
+  FOR UPDATE
+  TO authenticated
+  USING (public.is_staff())
+  WITH CHECK (public.is_staff());
+
+DROP POLICY IF EXISTS "Staff can delete form_submissions" ON public.form_submissions;
+CREATE POLICY "Staff can delete form_submissions"
+  ON public.form_submissions
+  FOR DELETE
+  TO authenticated
+  USING (public.is_manager());
+
 COMMIT;

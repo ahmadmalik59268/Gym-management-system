@@ -408,31 +408,7 @@ export const TrainerModal: React.FC<TrainerModalProps> = ({
         });
       }
     } else {
-      const newTrainer = addTrainer(payload);
-      if (addSalaryConfig && newTrainer) {
-        addSalaryConfig({
-          id: newTrainer.id,
-          employeeId: newTrainer.id,
-          employeeType: 'Trainer',
-          employeeName: newTrainer.name,
-          employeeRole: 'Trainer',
-          photo: newTrainer.photo,
-          email: newTrainer.email,
-          phone: newTrainer.phone,
-          salaryType: resolvedSalaryType,
-          baseSalary: baseSalaryValue,
-          workingDaysPerMonth: workingDaysValue,
-          commissionPercentage: commissionPercentValue,
-          commissionBasis: formData.commissionBasis,
-          commissionRevenueTreatment: formData.commissionRevenueTreatment,
-          hourlyRate: hourlyRateValue,
-          dailyRate: dailyRateValue,
-          joiningDate: newTrainer.joiningDate,
-          salaryEffectiveDate: newTrainer.joiningDate,
-          paymentMethod: 'Bank Transfer',
-          status: newTrainer.status || 'Active',
-        });
-      }
+      addTrainer(payload);
     }
 
     onClose();

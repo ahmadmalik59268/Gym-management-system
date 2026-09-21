@@ -30,6 +30,7 @@ import {
   Printer,
 } from 'lucide-react';
 import { useGym } from '../context/GymContext';
+import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/common/Button';
 import { Badge } from '../components/common/Badge';
 import { Avatar } from '../components/common/Avatar';
@@ -66,6 +67,7 @@ export const MemberProfile: React.FC = () => {
     formatCurrency,
   } = useGym();
 
+  const { user, role } = useAuth();
   const member = id ? getMember(id) : undefined;
 
   const [activeTab, setActiveTab] = useState<
@@ -106,6 +108,58 @@ export const MemberProfile: React.FC = () => {
         />
       </div>
     );
+  }
+
+  // Security Check: Member can only view their own profile
+  const isOwnMemberProfile =
+    Boolean(member.auth_user_id && member.auth_user_id === user?.id) ||
+    Boolean(member.email && user?.email && member.email.toLowerCase() === user.email.toLowerCase());
+
+  if (role === 'Member' && !isOwnMemberProfile) {
+    return (
+      <div className="space-y-6">
+        <div className="p-8 bg-rose-50 border border-rose-200 rounded-2xl text-center max-w-lg mx-auto">
+          <ShieldAlert className="w-12 h-12 text-rose-500 mx-auto mb-3" />
+          <h2 className="text-lg font-bold text-rose-900 mb-2">Access Restricted</h2>
+          <p className="text-sm text-rose-600 mb-5">
+            Security Policy: Athletes are strictly restricted to their personal profile. You cannot inspect other members' records.
+          </p>
+          <Button variant="primary" onClick={() => navigate('/workout-plans')}>
+            Return to My Fitness
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Security Check: Trainer can only view assigned athletes
+  if (role === 'Trainer') {
+    const currentTrainer = (trainers || []).find(
+      (t) =>
+        (t.auth_user_id && t.auth_user_id === user?.id) ||
+        (t.email && user?.email && t.email.toLowerCase() === user.email.toLowerCase())
+    );
+
+    const isAssigned =
+      currentTrainer &&
+      (assignments || []).some((a) => a.trainerId === currentTrainer.id && a.memberId === member.id);
+
+    if (!isAssigned) {
+      return (
+        <div className="space-y-6">
+          <div className="p-8 bg-amber-50 border border-amber-200 rounded-2xl text-center max-w-lg mx-auto">
+            <ShieldAlert className="w-12 h-12 text-amber-500 mx-auto mb-3" />
+            <h2 className="text-lg font-bold text-amber-900 mb-2">Trainer Access Restricted</h2>
+            <p className="text-sm text-amber-700 mb-5">
+              Security Policy: Trainers may only view athletes who are actively assigned to them.
+            </p>
+            <Button variant="primary" onClick={() => navigate('/workout-plans')}>
+              Return to My Assigned Athletes
+            </Button>
+          </div>
+        </div>
+      );
+    }
   }
 
   // Related Member Data

@@ -16,12 +16,12 @@ import {
   ArrowLeft,
   RefreshCw,
 } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth, getRoleDefaultPath } from '../context/AuthContext';
 import { isSupabaseConfigured, saveCustomCredentials } from '../lib/supabaseClient';
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
-  const { user, signIn, signUp, resetPassword } = useAuth();
+  const { user, role, isLoading, signIn, signUp, resetPassword } = useAuth();
 
   const [mode, setMode] = useState<'signin' | 'signup' | 'forgot' | 'config'>('signin');
   const [email, setEmail] = useState('');
@@ -42,12 +42,25 @@ export const LoginPage: React.FC = () => {
   const [configUrl, setConfigUrl] = useState('');
   const [configKey, setConfigKey] = useState('');
 
-  // If already authenticated, redirect to dashboard
+  // If already authenticated and done loading, redirect directly to user's authorized path
   useEffect(() => {
-    if (user) {
-      navigate('/', { replace: true });
+    if (!isLoading && user) {
+      navigate(getRoleDefaultPath(role), { replace: true });
     }
-  }, [user, navigate]);
+  }, [user, role, isLoading, navigate]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col justify-center items-center px-4 font-sans">
+        <div className="w-14 h-14 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-600/30 mb-4 animate-pulse">
+          <Dumbbell className="w-7 h-7" />
+        </div>
+        <h2 className="text-xl font-bold tracking-tight text-white mb-2">APEXFIT SYSTEM</h2>
+        <p className="text-xs text-slate-400">Verifying session & permissions...</p>
+        <div className="mt-4 w-6 h-6 border-2 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,11 +87,13 @@ export const LoginPage: React.FC = () => {
         setErrorMsg('Incorrect email or password. Please verify your credentials and try again.');
       } else if (err.includes('email not confirmed')) {
         setErrorMsg('Your email is not confirmed yet. Please verify your email inbox or check your Supabase Auth settings.');
+      } else if (err.includes('inactive')) {
+        setErrorMsg('Your account is marked inactive. Please contact the gym administrator.');
       } else {
         setErrorMsg(error.message || 'Login failed. Please check your network and credentials.');
       }
     } else {
-      navigate('/', { replace: true });
+      navigate(getRoleDefaultPath(role), { replace: true });
     }
   };
 
@@ -175,6 +190,18 @@ export const LoginPage: React.FC = () => {
 
       {/* Main Container */}
       <div className="w-full max-w-md relative z-10">
+        {/* Navigation to Landing Page */}
+        <div className="mb-4 flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => navigate('/landing')}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-400 hover:text-white bg-slate-900/80 hover:bg-slate-800 border border-slate-800 px-3.5 py-1.5 rounded-xl transition-all cursor-pointer shadow-xs"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Back to Public Website</span>
+          </button>
+        </div>
+
         {/* Brand Header */}
         <div className="text-center mb-6">
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-indigo-600 text-white shadow-lg shadow-indigo-600/30 mb-3">

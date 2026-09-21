@@ -15,6 +15,7 @@ import {
   GymProfileSettings,
   GeneralSettings,
   ReceiptSettings,
+  FormSubmission,
 } from '../types';
 
 export const initialMembershipPlans: MembershipPlan[] = [
@@ -1506,12 +1507,12 @@ export const initialStaff: StaffUser[] = [
 ];
 
 export const initialGymProfile: GymProfileSettings = {
-  gymName: 'Apex Core Athletic Club',
+  gymName: 'ApexFit Commercial Club',
   logo: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=100&auto=format&fit=crop&q=80',
-  phone: '+1 (555) 800-APEX',
-  email: 'support@apexcorefitness.com',
-  address: '1080 Olympic Way, Suite 400, Portland, OR 97201',
-  website: 'https://apexcorefitness.example.com',
+  phone: '03326109729',
+  email: 'ahmadmalik59268@gmail.com',
+  address: 'Shahdara, Lahore',
+  website: 'https://apexfit.com',
 };
 
 export const initialGeneralSettings: GeneralSettings = {
@@ -1527,3 +1528,55 @@ export const initialReceiptSettings: ReceiptSettings = {
   taxNumber: 'TAX-OR-9923841-B',
   termsAndConditions: 'All fees paid are strictly subject to standard member agreement policies.',
 };
+
+export const initialFormSubmissions: FormSubmission[] = [
+  {
+    id: 'FORM-1001',
+    createdAt: new Date(Date.now() - 1000 * 60 * 42).toISOString(), // 42 mins ago
+    name: 'Hamza Tariq',
+    email: 'hamza.tariq@gmail.com',
+    phone: '+92 300 1234567',
+    formType: 'Contact Us',
+    subject: 'Membership Inquiry for Annual Gold Plan',
+    message: 'Hello, I saw your gym on the website. I want to inquire if you offer personal trainer packages along with the annual membership? Please call or WhatsApp me.',
+    status: 'New',
+    notes: 'Visitor inquired via landing page contact form.',
+  },
+  {
+    id: 'FORM-1002',
+    createdAt: new Date(Date.now() - 1000 * 60 * 180).toISOString(), // 3 hours ago
+    name: 'Ayesha Khan',
+    email: 'ayesha.k@outlook.com',
+    phone: '+92 321 9876543',
+    formType: 'Demo Request',
+    subject: 'Request for Gym Tour & Trial Workout',
+    message: 'Can I visit the gym tomorrow at 6 PM for a trial workout session with a certified trainer?',
+    status: 'Contacted',
+    notes: 'Reception called and scheduled visit for 6:00 PM tomorrow.',
+  },
+  {
+    id: 'FORM-1003',
+    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(), // 1 day ago
+    name: 'Bilal Ahmed',
+    email: 'bilal.ahmed@yahoo.com',
+    phone: '+92 333 4567890',
+    formType: 'Free Trial',
+    subject: 'Free 3-Day Pass Request',
+    message: 'Looking to join the morning cardio and strength classes. Please activate my pass.',
+    status: 'Converted',
+    notes: 'Converted into registered Active Member (MEM-1002).',
+  },
+  {
+    id: 'FORM-1004',
+    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString(), // 2 days ago
+    name: 'Zainab Fatima',
+    email: 'zainab.f@gmail.com',
+    phone: '+92 345 6789012',
+    formType: 'Membership Inquiry',
+    subject: 'Women Only Timings & Facilities',
+    message: 'Hi, do you have separate female-only workout sections or hours with female certified coaches?',
+    status: 'Closed',
+    notes: 'Informed about 10am-2pm female dedicated slot.',
+  },
+];
+

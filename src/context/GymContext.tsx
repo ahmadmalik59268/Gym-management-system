@@ -20,8 +20,10 @@ import {
   GeneralSettings,
   ReceiptSettings,
   GymSettings,
+  FormSubmission,
 } from '../types';
 import { isSupabaseConfigured } from '../lib/supabaseClient';
+import { initialFormSubmissions } from '../data/mockData';
 import {
   apiFetchMembers,
   apiInsertMember,
@@ -75,6 +77,10 @@ import {
   apiFetchGymSettings,
   apiUpdateGeneralSettings,
   apiUpdateReceiptSettings,
+  apiFetchFormSubmissions,
+  apiInsertFormSubmission,
+  apiUpdateFormSubmission,
+  apiDeleteFormSubmission,
 } from '../lib/supabaseService';
 
 export interface CurrencyOption {
@@ -105,9 +111,9 @@ export interface ToastNotification {
 const defaultGymProfile: GymProfileSettings = {
   gymName: 'ApexFit Commercial Club',
   logo: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=200&auto=format&fit=crop&q=80',
-  phone: '+92 300 1234567',
-  email: 'support@apexfit.com',
-  address: 'Commercial Block 4, Sector B, City Gym Arena',
+  phone: '03326109729',
+  email: 'ahmadmalik59268@gmail.com',
+  address: 'Shahdara, Lahore',
   website: 'https://apexfit.com',
 };
 
@@ -239,6 +245,13 @@ interface GymContextType {
   updateGeneralSettings: (settings: Partial<GeneralSettings>) => void;
   updateReceiptSettings: (settings: Partial<ReceiptSettings>) => void;
 
+  // Forms & Landing Page Inquiries
+  formSubmissions: FormSubmission[];
+  addFormSubmission: (submission: Omit<FormSubmission, 'id' | 'createdAt'>) => Promise<FormSubmission>;
+  updateFormSubmission: (id: string, updates: Partial<Pick<FormSubmission, 'status' | 'notes'>>) => Promise<void>;
+  deleteFormSubmission: (id: string) => Promise<void>;
+  convertFormSubmissionToMember: (submission: FormSubmission) => Member;
+
   // Helper selectors
   getMember: (id: string) => Member | undefined;
   getTrainer: (id: string) => Trainer | undefined;
@@ -264,8 +277,25 @@ export const GymProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [gymProfile, setGymProfile] = useState<GymProfileSettings>(defaultGymProfile);
   const [generalSettings, setGeneralSettings] = useState<GeneralSettings>(defaultGeneralSettings);
   const [receiptSettings, setReceiptSettings] = useState<ReceiptSettings>(defaultReceiptSettings);
+  const [formSubmissions, setFormSubmissions] = useState<FormSubmission[]>(() => {
+    try {
+      const saved = localStorage.getItem('apexfit_form_submissions');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.error(e);
+    }
+    return initialFormSubmissions;
+  });
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
   const [isLoadingData, setIsLoadingData] = useState<boolean>(true);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('apexfit_form_submissions', JSON.stringify(formSubmissions));
+    } catch (e) {
+      console.error('Failed to cache form submissions:', e);
+    }
+  }, [formSubmissions]);
 
   const showToast = useCallback(
     (message: string, type: 'success' | 'error' | 'info' | 'warning' = 'success') => {
@@ -307,6 +337,7 @@ export const GymProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         notifList,
         profData,
         settData,
+        formsData,
       ] = await Promise.allSettled([
         apiFetchMembers(),
         apiFetchPlans(),
@@ -323,6 +354,7 @@ export const GymProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         apiFetchNotifications(),
         apiFetchGymProfile(),
         apiFetchGymSettings(),
+        apiFetchFormSubmissions(),
       ]);
 
       if (mList.status === 'fulfilled') setMembers(mList.value);
@@ -338,6 +370,9 @@ export const GymProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (eqList.status === 'fulfilled') setEquipment(eqList.value);
       if (stfList.status === 'fulfilled') setStaff(stfList.value);
       if (notifList.status === 'fulfilled') setNotifications(notifList.value);
+      if (formsData.status === 'fulfilled' && formsData.value && formsData.value.length > 0) {
+        setFormSubmissions(formsData.value);
+      }
 
       if (profData.status === 'fulfilled' && profData.value) {
         setGymProfile(profData.value);
@@ -1203,6 +1238,76 @@ export const GymProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showToast(message, type);
   };
 
+  // Form Submissions Operations
+  const addFormSubmission = async (
+    submission: Omit<FormSubmission, 'id' | 'createdAt'>
+  ): Promise<FormSubmission> => {
+    try {
+      const created = await apiInsertFormSubmission(submission);
+      setFormSubmissions((prev) => [created, ...prev]);
+      showToast(`New inquiry from ${created.name} recorded.`, 'success');
+      return created;
+    } catch (err: any) {
+      console.error('Error inserting form submission into database:', err);
+      // Re-throw so callers (e.g. Landing Page) do not display false positive success messages
+      throw err;
+    }
+  };
+
+  const updateFormSubmission = async (
+    id: string,
+    updates: Partial<Pick<FormSubmission, 'status' | 'notes'>>
+  ): Promise<void> => {
+    setFormSubmissions((prev) =>
+      prev.map((sub) => (sub.id === id ? { ...sub, ...updates } : sub))
+    );
+    try {
+      await apiUpdateFormSubmission(id, updates);
+      showToast('Inquiry status updated successfully.', 'success');
+    } catch (err: any) {
+      console.warn('Could not sync status update to Supabase, saved locally:', err.message);
+    }
+  };
+
+  const deleteFormSubmission = async (id: string): Promise<void> => {
+    setFormSubmissions((prev) => prev.filter((sub) => sub.id !== id));
+    try {
+      await apiDeleteFormSubmission(id);
+      showToast('Form submission removed.', 'info');
+    } catch (err: any) {
+      console.warn('Could not sync deletion to Supabase:', err.message);
+    }
+  };
+
+  const convertFormSubmissionToMember = (submission: FormSubmission): Member => {
+    const newMember = addMember({
+      fullName: submission.name,
+      guardianName: '',
+      profilePhoto: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+      phone: submission.phone || '+92 300 0000000',
+      email: submission.email || 'member@example.com',
+      dob: '2000-01-01',
+      gender: 'Male',
+      address: 'Registered via Landing Page Inquiry',
+      emergencyContact: {
+        name: 'Emergency Contact',
+        relation: 'Relative',
+        phone: submission.phone || '',
+      },
+      joinDate: new Date().toISOString().split('T')[0],
+      status: 'Active',
+      notes: `Converted from Landing Page inquiry: "${submission.subject || submission.formType}" on ${new Date().toLocaleDateString()}`,
+    });
+
+    updateFormSubmission(submission.id, {
+      status: 'Converted',
+      notes: (submission.notes ? submission.notes + '\n' : '') + `Converted to Member ID: ${newMember.id}`,
+    });
+
+    showToast(`Successfully converted ${submission.name} to Member (${newMember.id})!`, 'success');
+    return newMember;
+  };
+
   const getMember = (id: string) => members.find((m) => m.id === id);
   const getTrainer = (id: string) => trainers.find((t) => t.id === id);
   const getPlan = (id: string) => {
@@ -1305,6 +1410,11 @@ export const GymProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         getMember,
         getTrainer,
         getPlan,
+        formSubmissions,
+        addFormSubmission,
+        updateFormSubmission,
+        deleteFormSubmission,
+        convertFormSubmissionToMember,
       }}
     >
       {children}

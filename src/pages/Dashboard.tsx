@@ -14,6 +14,9 @@ import {
   ChevronRight,
   AlertCircle,
   Plus,
+  FileText,
+  Sparkles,
+  ExternalLink,
 } from 'lucide-react';
 import { useGym } from '../context/GymContext';
 import { StatCard } from '../components/common/StatCard';
@@ -29,6 +32,7 @@ export const Dashboard: React.FC = () => {
     payments,
     attendance,
     expenses,
+    formSubmissions,
     getPlan,
     getMember,
     formatCurrency,
@@ -86,6 +90,9 @@ export const Dashboard: React.FC = () => {
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     .slice(0, 5);
 
+  const newInquiriesCount = (formSubmissions || []).filter((s) => s.status === 'New').length;
+  const recentInquiries = (formSubmissions || []).slice(0, 4);
+
   return (
     <div className="space-y-6">
       {/* Top Banner & Quick Actions */}
@@ -99,6 +106,21 @@ export const Dashboard: React.FC = () => {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <Link to="/forms">
+            <Button
+              size="sm"
+              variant="outline"
+              icon={<FileText className="w-4 h-4 text-indigo-600" />}
+              className="relative"
+            >
+              Forms & Leads
+              {newInquiriesCount > 0 && (
+                <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-extrabold bg-indigo-600 text-white">
+                  {newInquiriesCount}
+                </span>
+              )}
+            </Button>
+          </Link>
           <Link to="/members/new">
             <Button size="sm" variant="primary" icon={<Plus className="w-4 h-4" />}>
               Add Member
@@ -465,6 +487,102 @@ export const Dashboard: React.FC = () => {
           </div>
         </Card>
       </div>
+
+      {/* Website Leads & Forms Submissions (Captured from Landing Page) */}
+      <Card
+        title="Website Leads & Forms"
+        subtitle="Recent inquiries and membership requests submitted via public landing page"
+        action={
+          <div className="flex items-center gap-3">
+            <Link
+              to="/landing"
+              target="_blank"
+              className="text-xs font-semibold text-slate-500 hover:text-slate-700 flex items-center gap-1"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              <span>Public Page</span>
+            </Link>
+            <Link
+              to="/forms"
+              className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
+            >
+              <span>Manage All ({formSubmissions?.length || 0})</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+        }
+      >
+        {(!formSubmissions || formSubmissions.length === 0) ? (
+          <div className="py-8 text-center">
+            <FileText className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+            <p className="text-xs font-semibold text-slate-600">No website leads received yet</p>
+            <p className="text-[11px] text-slate-400 mt-0.5">
+              Inquiries submitted through your landing page contact form will appear here automatically.
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto -mx-5 -my-2">
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="border-b border-slate-100 bg-slate-50/50 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                  <th className="py-2.5 px-5">Lead / Sender</th>
+                  <th className="py-2.5 px-4">Inquiry Type</th>
+                  <th className="py-2.5 px-4">Subject</th>
+                  <th className="py-2.5 px-4">Submitted</th>
+                  <th className="py-2.5 px-4">Status</th>
+                  <th className="py-2.5 px-5 text-right">Quick Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {recentInquiries.map((inq) => (
+                  <tr key={inq.id} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="py-3 px-5">
+                      <div className="font-bold text-slate-900">{inq.name}</div>
+                      <div className="text-[11px] text-slate-400">{inq.email} {inq.phone ? `• ${inq.phone}` : ''}</div>
+                    </td>
+                    <td className="py-3 px-4">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-100">
+                        {inq.formType}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 max-w-xs truncate text-slate-700">
+                      {inq.subject}
+                    </td>
+                    <td className="py-3 px-4 text-slate-500 whitespace-nowrap text-[11px]">
+                      {new Date(inq.createdAt).toLocaleDateString()}
+                    </td>
+                    <td className="py-3 px-4 whitespace-nowrap">
+                      <Badge
+                        variant={
+                          inq.status === 'Converted'
+                            ? 'success'
+                            : inq.status === 'Contacted'
+                            ? 'warning'
+                            : inq.status === 'New'
+                            ? 'primary'
+                            : 'neutral'
+                        }
+                        size="sm"
+                      >
+                        {inq.status}
+                      </Badge>
+                    </td>
+                    <td className="py-3 px-5 text-right whitespace-nowrap">
+                      <Link
+                        to="/forms"
+                        className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-lg transition-colors"
+                      >
+                        <span>Open Details</span>
+                        <ChevronRight className="w-3 h-3" />
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
     </div>
   );
 };

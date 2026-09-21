@@ -41,6 +41,7 @@ import {
 } from 'lucide-react';
 import { useGym } from '../context/GymContext';
 import { usePayroll } from '../context/PayrollContext';
+import { useAuth } from '../context/AuthContext';
 import { Trainer, Member, WorkoutPlan, DietPlan } from '../types';
 import { Button } from '../components/common/Button';
 import { Badge } from '../components/common/Badge';
@@ -56,6 +57,7 @@ import { AttendanceModal } from '../components/attendance/AttendanceModal';
 export const TrainerProfile: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user, role } = useAuth();
 
   const {
     trainers,
@@ -140,6 +142,45 @@ export const TrainerProfile: React.FC = () => {
               Return to Coach Directory
             </Button>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Security Check: Trainer can only view their own profile
+  const isOwnTrainerProfile =
+    Boolean(trainer.auth_user_id && trainer.auth_user_id === user?.id) ||
+    Boolean(trainer.email && user?.email && trainer.email.toLowerCase() === user.email.toLowerCase());
+
+  if (role === 'Trainer' && !isOwnTrainerProfile) {
+    return (
+      <div className="space-y-6">
+        <div className="p-8 bg-rose-50 border border-rose-200 rounded-2xl text-center max-w-lg mx-auto">
+          <AlertTriangle className="w-12 h-12 text-rose-500 mx-auto mb-3" />
+          <h2 className="text-lg font-bold text-rose-900 mb-2">Access Restricted</h2>
+          <p className="text-sm text-rose-600 mb-5">
+            Security Policy: Trainers may only view and manage their personal coach profile.
+          </p>
+          <Button variant="primary" onClick={() => navigate('/workout-plans')}>
+            Return to My Assigned Athletes
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (role === 'Member') {
+    return (
+      <div className="space-y-6">
+        <div className="p-8 bg-rose-50 border border-rose-200 rounded-2xl text-center max-w-lg mx-auto">
+          <AlertTriangle className="w-12 h-12 text-rose-500 mx-auto mb-3" />
+          <h2 className="text-lg font-bold text-rose-900 mb-2">Access Restricted</h2>
+          <p className="text-sm text-rose-600 mb-5">
+            Security Policy: Members cannot inspect trainer internal operational profiles.
+          </p>
+          <Button variant="primary" onClick={() => navigate('/workout-plans')}>
+            Return to My Fitness
+          </Button>
         </div>
       </div>
     );

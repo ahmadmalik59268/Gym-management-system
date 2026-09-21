@@ -3,17 +3,18 @@ import { Outlet, Navigate, useLocation } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { ToastContainer } from '../common/ToastContainer';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth, getRoleDefaultPath } from '../../context/AuthContext';
 import { Dumbbell } from 'lucide-react';
+import { LandingPage } from '../../pages/LandingPage';
 
 export const AppLayout: React.FC = () => {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isDesktopCollapsed, setIsDesktopCollapsed] = useState(false);
-  const { user, isLoading, isConfigured, hasAccess, role } = useAuth();
+  const { user, isLoading, hasAccess, role } = useAuth();
   const location = useLocation();
 
   // Loading state while checking active Supabase session
-  if (isConfigured && isLoading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white">
         <div className="w-14 h-14 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-600/30 mb-4 animate-pulse">
@@ -26,8 +27,11 @@ export const AppLayout: React.FC = () => {
     );
   }
 
-  // Redirect to login if Supabase is configured and user is not authenticated
-  if (isConfigured && !user) {
+  // Redirect to login if user is not authenticated
+  if (!user) {
+    if (location.pathname === '/') {
+      return <LandingPage />;
+    }
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
@@ -35,17 +39,8 @@ export const AppLayout: React.FC = () => {
   const pathNameClean = location.pathname.replace(/^\/|\/$/g, '') || 'dashboard';
   const isAuthorized = hasAccess(pathNameClean);
 
-  if (isConfigured && user && !isAuthorized) {
-    if (role === 'Receptionist') {
-      return <Navigate to="/members" replace />;
-    }
-    if (role === 'Trainer') {
-      return <Navigate to="/workout-plans" replace />;
-    }
-    if (role === 'Member') {
-      return <Navigate to="/workout-plans" replace />;
-    }
-    return <Navigate to="/" replace />;
+  if (!isAuthorized) {
+    return <Navigate to={getRoleDefaultPath(role)} replace />;
   }
 
   return (
